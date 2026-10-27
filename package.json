@@ -1,0 +1,1 @@
+{"description":"OwnMind — a private personal AI whose persistent memory lives in a user-owned local file, powered by NVIDIA Nemotron on Nebius Token Factory.","engines":{"node":">=18"},"license":"MIT","name":"ownmind","private":false,"scripts":{"start":"node server.js","test":"node scripts/smoke.js"},"version":"1.0.0"}

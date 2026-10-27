@@ -1,0 +1,4 @@
+# The vault is the user's private memory — never commit it.
+data/memory.json
+.env
+node_modules/

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OwnMind — Private personal AI with a memory you own</title>
+<style>
+  :root {
+    --bg: #0b0f14; --panel: #111826; --panel2: #0e1420; --line: #22304a;
+    --text: #e8eef7; --dim: #93a4bd; --accent: #7ee787; --accent2: #76b7ff;
+    --warn: #ff9d76; --receipt: #16233a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: ui-sans-system, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 16px 22px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 22px; margin: 0; letter-spacing: .2px; }
+  header h1 span { color: var(--accent); }
+  header p { margin: 0; color: var(--dim); font-size: 13px; }
+  .badge { font-size: 12px; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--dim); }
+  .badge.live { color: #06130a; background: var(--accent); border-color: var(--accent); font-weight: 700; }
+  .badge.mock { color: var(--warn); border-color: var(--warn); }
+  main { display: grid; grid-template-columns: 1fr 380px; gap: 0; height: calc(100vh - 65px); }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; height: auto; } }
+  #chatPane { display: flex; flex-direction: column; border-right: 1px solid var(--line); min-height: 60vh; }
+  #messages { flex: 1; overflow-y: auto; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 78%; padding: 11px 14px; border-radius: 14px; line-height: 1.45; white-space: pre-wrap; font-size: 15px; }
+  .msg.user { align-self: flex-end; background: #1c2f4d; border: 1px solid #2c4a77; }
+  .msg.ai { align-self: flex-start; background: var(--panel); border: 1px solid var(--line); }
+  .meta { font-size: 11px; color: var(--dim); margin-top: 6px; }
+  .meta .new { color: var(--accent); }
+  #composer { display: flex; gap: 10px; padding: 14px; border-top: 1px solid var(--line); background: var(--panel2); }
+  #input { flex: 1; background: #0a101b; color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px; font-size: 15px; resize: none; }
+  button { background: var(--accent); color: #06130a; border: 0; font-weight: 700;
+    border-radius: 10px; padding: 0 18px; cursor: pointer; font-size: 14px; }
+  button.ghost { background: transparent; color: var(--dim); border: 1px solid var(--line); font-weight: 600; }
+  button.danger { background: transparent; color: var(--warn); border: 1px solid var(--warn); font-weight: 600; padding: 6px 10px; }
+  aside { padding: 18px; overflow-y: auto; background: var(--panel2); }
+  aside h2 { font-size: 15px; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--dim); }
+  aside .sub { font-size: 12.5px; color: var(--dim); margin-bottom: 14px; line-height: 1.5; }
+  .receipt { background: var(--receipt); border: 1px solid var(--line); border-left: 3px solid var(--accent2);
+    border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .receipt.fresh { border-left-color: var(--accent); }
+  .receipt .txt { font-size: 14px; line-height: 1.4; }
+  .receipt .row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
+  .receipt .when { font-size: 11px; color: var(--dim); }
+  .chip { font-size: 10.5px; border: 1px solid var(--line); color: var(--accent2);
+    padding: 2px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: .6px; }
+  .forget { background: transparent; border: 1px solid #3a2b33; color: var(--warn);
+    font-size: 11.5px; padding: 4px 9px; border-radius: 8px; font-weight: 600; }
+  #teachBox { display: flex; gap: 8px; margin: 6px 0 16px; }
+  #teachInput { flex: 1; background: #0a101b; color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 10px; font-size: 13px; }
+  #teachBox button { padding: 0 12px; font-size: 13px; }
+  .empty { color: var(--dim); font-size: 13.5px; border: 1px dashed var(--line);
+    border-radius: 10px; padding: 14px; line-height: 1.5; }
+  .vaultActions { display: flex; gap: 8px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Own<span>Mind</span></h1>
+  <p>Private personal AI — its memory lives in a file on <b>your</b> machine. Nemotron reasoning via Nebius Token Factory.</p>
+  <span id="modeBadge" class="badge">loading…</span>
+  <span id="countBadge" class="badge">0 memories</span>
+</header>
+<main>
+  <section id="chatPane">
+    <div id="messages"></div>
+    <form id="composer">
+      <textarea id="input" rows="2" placeholder="Tell me something to remember — e.g. “My name is Rene, I live in Lisbon, and my dog is called Pico.” Then ask me about it later."></textarea>
+      <button type="submit">Send</button>
+    </form>
+  </section>
+  <aside>
+    <h2>Memory Vault</h2>
+    <div class="sub">Every fact OwnMind stores appears here as a <b>receipt</b> — what was stored, when, and where it came from. Forgetting is a real delete from the local file, not a hide. Try: store a fact, restart the server, ask about it. Then forget it and ask again.</div>
+    <div id="teachBox">
+      <input id="teachInput" placeholder="Teach it directly: User prefers concise answers" />
+      <button id="teachBtn" type="button">Store</button>
+    </div>
+    <div id="vault"></div>
+    <div class="vaultActions">
+      <button id="exportBtn" class="ghost" type="button">Export my memory (JSON)</button>
+      <button id="forgetAllBtn" class="danger" type="button">Forget everything</button>
+    </div>
+  </aside>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+let freshIds = new Set();
+
+async function refreshStatus() {
+  const s = await (await fetch('/api/status')).json();
+  const badge = $('#modeBadge');
+  if (s.mode === 'nebius') {
+    badge.textContent = '● LIVE · Nemotron on Nebius Token Factory · ' + s.model;
+    badge.className = 'badge live';
+  } else {
+    badge.textContent = '● LOCAL MOCK MODEL (set NEBIUS_API_KEY for live Nemotron)';
+    badge.className = 'badge mock';
+  }
+  $('#countBadge').textContent = s.memoryCount + (s.memoryCount === 1 ? ' memory' : ' memories');
+}
+
+async function refreshVault() {
+  const data = await (await fetch('/api/memories')).json();
+  const vault = $('#vault');
+  if (!data.memories.length) {
+    vault.innerHTML = '<div class="empty">Vault is empty. Nothing about you is stored anywhere — yet. When you share a fact, its receipt will appear here.</div>';
+    return;
+  }
+  vault.innerHTML = '';
+  for (const m of [...data.memories].reverse()) {
+    const div = document.createElement('div');
+    div.className = 'receipt' + (freshIds.has(m.id) ? ' fresh' : '');
+    const when = new Date(m.createdAt).toLocaleString();
+    div.innerHTML = '';
+    const txt = document.createElement('div'); txt.className = 'txt'; txt.textContent = m.text;
+    const row = document.createElement('div'); row.className = 'row';
+    const left = document.createElement('span');
+    left.innerHTML = '<span class="chip"></span> <span class="when"></span>';
+    left.querySelector('.chip').textContent = m.kind;
+    left.querySelector('.when').textContent = when + ' · via ' + m.source;
+    const btn = document.createElement('button');
+    btn.className = 'forget'; btn.textContent = 'Forget';
+    btn.onclick = async () => {
+      await fetch('/api/memories/' + m.id, { method: 'DELETE' });
+      freshIds.delete(m.id);
+      refreshVault(); refreshStatus();
+    };
+    row.appendChild(left); row.appendChild(btn);
+    div.appendChild(txt); div.appendChild(row);
+    vault.appendChild(div);
+  }
+}
+
+function addMsg(role, text, metaHtml) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.textContent = text;
+  if (metaHtml) {
+    const meta = document.createElement('div');
+    meta.className = 'meta'; meta.innerHTML = metaHtml;
+    div.appendChild(meta);
+  }
+  $('#messages').appendChild(div);
+  $('#messages').scrollTop = $('#messages').scrollHeight;
+}
+
+$('#composer').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = $('#input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addMsg('user', text);
+  try {
+    const out = await (await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text })
+    })).json();
+    if (out.error) { addMsg('ai', 'Error: ' + out.error); return; }
+    freshIds = new Set((out.receipts || []).map(r => r.id));
+    let meta = 'answered with ' + out.recalled.length + ' recalled memor' + (out.recalled.length === 1 ? 'y' : 'ies') +
+      ' · model: ' + out.model;
+    if (out.receipts && out.receipts.length)
+      meta += ' · <span class="new">stored ' + out.receipts.length + ' new receipt' + (out.receipts.length > 1 ? 's' : '') + '</span>';
+    addMsg('ai', out.reply, meta);
+  } catch (err) {
+    addMsg('ai', 'Request failed: ' + err.message);
+  }
+  refreshVault(); refreshStatus();
+});
+
+$('#teachBtn').addEventListener('click', async () => {
+  const v = $('#teachInput').value.trim();
+  if (!v) return;
+  const out = await (await fetch('/api/memories', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: v, kind: 'note' })
+  })).json();
+  if (out.receipt) freshIds = new Set([out.receipt.id]);
+  $('#teachInput').value = '';
+  refreshVault(); refreshStatus();
+});
+
+$('#forgetAllBtn').addEventListener('click', async () => {
+  if (!confirm('Delete every stored memory from the local vault file?')) return;
+  await fetch('/api/memories', { method: 'DELETE' });
+  freshIds.clear();
+  refreshVault(); refreshStatus();
+});
+
+$('#exportBtn').addEventListener('click', async () => {
+  const data = await (await fetch('/api/memories')).json();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ownmind-memory-export.json';
+  a.click();
+});
+
+addMsg('ai', 'Hello — I\'m OwnMind. My long-term memory is a plain JSON file on this machine (data/memory.json). Tell me facts about yourself and I\'ll store them as receipts in the vault on the right; ask me "what do you know about me?" to audit; forget anything with one click and I\'ll genuinely stop knowing it.');
+refreshStatus(); refreshVault();
+</script>
+</body>
+</html>
